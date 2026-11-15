@@ -1,0 +1,46 @@
+name: Build Xiaozhi-Lite
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:        # bisa dijalankan manual dari tab Actions
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup arduino-cli
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+      - name: Install libraries
+        run: |
+          arduino-cli lib install "Adafruit GFX Library"
+          arduino-cli lib install "Adafruit ST7789 Library"
+          arduino-cli lib install "Adafruit BusIO"
+          arduino-cli lib install "ArduinoJson"
+
+      - name: Compile
+        # PSRAM=opi  -> board N16R8 / N8R8 (octal PSRAM)
+        # Kalau board kamu N8R2 / N4R2 (quad PSRAM), ganti jadi PSRAM=enabled
+        run: |
+          arduino-cli compile \
+            --fqbn "esp32:esp32:esp32s3:PSRAM=opi,CDCOnBoot=cdc,PartitionScheme=huge_app,FlashSize=8M" \
+            --output-dir build \
+            xiaozhi_lite
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-lite-firmware
+          path: build/*.bin
